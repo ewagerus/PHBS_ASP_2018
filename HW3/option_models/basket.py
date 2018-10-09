@@ -11,9 +11,7 @@ from option_models import bsm
 #from .normal import normal_price
 
 def basket_check_args(spot, vol, corr_m, weights):
-    '''
-    This function simply checks that the size of the vector (matrix) are consistent
-    '''
+    
     n = spot.size
     assert( n == vol.size )
     assert( corr_m.shape == (n, n) )
@@ -29,13 +27,17 @@ def basket_price_mc_cv(
         strike, spot, vol, weights, texp, cor_m,
         intr, divr, cp_sign, True, n_samples)
     
-    #price2 = MC based on normal model
+    # restore the state in order to generate the same state
+    np.random.set_state(rand_st)  
+    
+    # compute price2: mc price based on normal model
+    # make sure you use the same seed
     price2 = basket_price_mc(
         strike, spot, vol*spot, weights, texp, cor_m,
         intr, divr, cp_sign, False, n_samples)
     
-    #price3: analytic price based on normal model
-    
+    # compute price3: analytic price based on normal model
+    # make sure you use the same seed
     price3 = basket_price_norm_analytic(
         strike, spot, vol*spot, weights, texp, cor_m, intr, divr, cp_sign)
     
@@ -45,8 +47,8 @@ def basket_price_mc_cv(
 
 def basket_price_mc(
     strike, spot, vol, weights, texp, cor_m,
-    intr=0.0, divr=0.0, cp_sign=1, bsm=True, n_samples = 10000
-):
+    intr=0.0, divr=0.0, cp_sign=1, bsm=True, n_samples = 10000):
+    
     basket_check_args(spot, vol, cor_m, weights)
     
     div_fac = np.exp(-texp*divr)
@@ -76,8 +78,7 @@ def basket_price_mc(
 
 def basket_price_norm_analytic(
     strike, spot, vol, weights, 
-    texp, cor_m, intr=0.0, divr=0.0, cp_sign=1
-):
+    texp, cor_m, intr=0.0, divr=0.0, cp_sign=1):
     
     div_fac = np.exp(-texp*divr)
     disc_fac = np.exp(-texp*intr)

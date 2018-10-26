@@ -10,6 +10,7 @@ import scipy.stats as ss
 import scipy.optimize as sopt
 from . import normal
 from . import bsm
+
 '''
 Asymptotic approximation for 0<beta<=1 by Hagan
 '''
@@ -120,7 +121,6 @@ class ModelHagan:
         return sigma
     
     def calibrate3(self, price_or_vol3, strike3, spot, texp=None, cp_sign=1, setval=False, is_vol=True):
-        
         '''  
         Given option prices or bsm vols at 3 strikes, compute the sigma, alpha, rho to fit the data
         If prices are given (is_vol=False) convert the prices to vol first.
@@ -128,8 +128,27 @@ class ModelHagan:
         you may use sopt.root
         # https://docs.scipy.org/doc/scipy-0.18.1/reference/generated/scipy.optimize.root.html#scipy.optimize.root
         '''
-            
-        return 3 # sigma, alpha, rho
+        texp = self.texp if(texp is None) else texp
+        
+        if (is_vol): 
+            vol = price_or_vol3
+               
+        else: 
+            vol = [self.bsm_model.impvol(price_or_vol3[i], strike3[i], spot, texp, cp_sign) for i in range(len(strike3))]
+           
+        def function(x):
+            sigma1=np.exp(x[0])
+            alpha1=np.exp(x[1])
+            rho1=(2/(1+np.exp(-x[2]))-1)
+            return vol - bsm_vol(strike3, spot, texp, sigma=sigma1, alpha=alpha1, rho=rho1)
+        
+        sol = sopt.root(function, np.zeros(len(strike3)))
+        
+        sigma1=np.exp(sol.x[0])
+        alpha1=np.exp(sol.x[1])
+        rho1=(2/(1+np.exp(-sol.x[2]))-1)
+
+        return sigma1, alpha1, rho1 # sigma, alpha, rho
 
 '''
 Hagan model class for beta=0
@@ -179,32 +198,29 @@ class ModelNormalHagan:
         you may use sopt.root
         # https://docs.scipy.org/doc/scipy-0.18.1/reference/generated/scipy.optimize.root.html#scipy.optimize.root
         '''
-        
+
         texp = self.texp if(texp is None) else texp
-        if(is_vol):
+        
+        if (is_vol): 
             vol = price_or_vol3
-        else:
-            vol = [self.normal_model.impvol(price_or_vol3[i], strike3[i], spot, texp, cp_sign=cp_sign) for i in range(3)]
+               
+        else: 
+            vol = [self.normal_model.impvol(price_or_vol3[i], strike3[i], spot, texp, cp_sign) for i in range(len(strike3))]
+           
+        def function(x):
+            sigma1=np.sqrt(x[0]**2)
+            alpha1=np.sqrt(x[1]**2)
+            rho1=2*x[2]/(1+x[2]**2)
+            return vol - norm_vol(strike3, spot, texp, sigma=sigma1, alpha=alpha1, rho=rho1)
+        
+        sol = sopt.root(function, np.zeros(len(strike3)))
+        
+        sigma1=np.sqrt(sol.x[0]**2)
+        alpha1=np.sqrt(sol.x[1]**2)
+        rho1=2*sol[2]/(1+sol.x[2]**2)
 
-
-        def FOC(x):
-            # set constraints to the parameters
-            sigma = np.sqrt(x[0]**2)
-            alpha = np.sqrt(x[1]**2)
-            rho = 2*x[2]/(1+x[2]**2)
-            norm_vol1 = norm_vol(strike3[0], spot, texp, sigma, alpha=alpha, rho=rho) - vol[0]
-            norm_vol2 = norm_vol(strike3[1], spot, texp, sigma, alpha=alpha, rho=rho) - vol[1]
-            norm_vol3 = norm_vol(strike3[2], spot, texp, sigma, alpha=alpha, rho=rho) - vol[2]
-            return [norm_vol1,norm_vol2,norm_vol3]
-            
-        sol_root = sopt.root(FOC,np.array([0,0,0]))
-        solution_x = sol_root.x
-
-        sigma = np.sqrt(solution_x[0]**2)
-        alpha = np.sqrt(solution_x[1]**2)
-        rho = 2*solution_x[2]/(1+solution_x[2]**2)
-
-        return sigma, alpha, rho # sigma, alpha, rho
+        return sigma1, alpha1, rho1 # sigma, alpha, rho
+     
 
 '''
 MC model class for Beta=1
@@ -233,7 +249,21 @@ class ModelBsmMC:
         this is the opposite of bsm_vol in ModelHagan class
         use bsm_model
         '''
-        return 0
+        
+        texp = self.texp if(texp is None) else texp
+        vol = self.bsm_model.impvol(price, strike, spot, texp, cp_sign=cp_sign)
+        forward = spot * np.exp(texp*(self.intr - self.divr))
+        
+        price = self.price(self, strike, spot, texp, sigma, cp_sign)
+        sigma = self.texp if(sigma is None) else sigma
+        
+        iv_func = lambda _sigma: \
+            bsm_vol(strike, forward, texp, _sigma, alpha=self.alpha, rho=self.rho) - vol
+        sigma = sopt.brentq(iv_func, 0, 10)
+        if(setval):
+            self.sigma = sigma
+            
+        return sigma
     
     def price(self, strike, spot, texp=None, sigma=None, cp_sign=1):
         '''
@@ -242,7 +272,31 @@ class ModelBsmMC:
         You may fix the random number seed
         '''
         np.random.seed(12345)
-        return 0
+        
+        texp = self.texp if(texp is None) else texp
+        sigma = self.texp if(sigma is None) else sigma
+        
+        alpha = self.alpha
+        beta = self.beta
+        rho = self.rho
+         
+        N=int(texp/0.25)
+        
+        delta_t=texp/N
+        
+        n_samples=1000
+        
+        norm = np.random.normal(size=(strike.size, N, n_samples, 2))
+        Z1 = norm[:, :, 0]
+        Z2 = rho * Z1 + np.sqrt(1 - rho**2) * norm[:, :, 1]
+               
+        sigma_tk = sigma * np.cumprod(alpha * np.sqrt(delta_t) * Z2 - 0.5 * alpha**2 + delta_t, axis=1)
+          
+        st = spot * np.cumprod(np.exp(sigma_tk * np.sqrt(delta_t) * Z1 - 0.5 * sigma_tk**2 * delta_t), axis=1)[:,-1]
+        
+        ck=np.mean(np.fmax(cp_sign*(st - strike[:, np.newaxis]), 0), axis=1)
+
+        return ck
 
 '''
 MC model class for Beta=0

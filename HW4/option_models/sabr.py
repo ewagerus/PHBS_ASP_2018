@@ -217,7 +217,7 @@ class ModelNormalHagan:
         
         sigma1=np.sqrt(sol.x[0]**2)
         alpha1=np.sqrt(sol.x[1]**2)
-        rho1=2*sol[2]/(1+sol.x[2]**2)
+        rho1=2*sol.x[2]/(1+sol.x[2]**2)
 
         return sigma1, alpha1, rho1 # sigma, alpha, rho
      
@@ -249,7 +249,6 @@ class ModelBsmMC:
         this is the opposite of bsm_vol in ModelHagan class
         use bsm_model
         '''
-        
         texp = self.texp if(texp is None) else texp
         vol = self.bsm_model.impvol(price, strike, spot, texp, cp_sign=cp_sign)
         forward = spot * np.exp(texp*(self.intr - self.divr))
@@ -260,6 +259,7 @@ class ModelBsmMC:
         iv_func = lambda _sigma: \
             bsm_vol(strike, forward, texp, _sigma, alpha=self.alpha, rho=self.rho) - vol
         sigma = sopt.brentq(iv_func, 0, 10)
+        
         if(setval):
             self.sigma = sigma
             
@@ -274,27 +274,25 @@ class ModelBsmMC:
         np.random.seed(12345)
         
         texp = self.texp if(texp is None) else texp
-        sigma = self.texp if(sigma is None) else sigma
+        sigma = self.sigma if(sigma is None) else sigma
         
         alpha = self.alpha
         beta = self.beta
         rho = self.rho
-         
-        N=int(texp/0.25)
-        
-        delta_t=texp/N
+  
+        delta_t=0.25
+        N=int(texp/delta_t)
         
         n_samples=1000
-        
-        norm = np.random.normal(size=(strike.size, N, n_samples, 2))
-        Z1 = norm[:, :, 0]
-        Z2 = rho * Z1 + np.sqrt(1 - rho**2) * norm[:, :, 1]
+                
+        Z1 = np.random.normal(size=(strike.size, N, 2, n_samples))[:, :, 0]
+        Z2 = rho * Z1 + np.sqrt(1 - rho**2) * np.random.normal(size=(strike.size, N, 2, n_samples))[:, :, 0]
                
-        sigma_tk = sigma * np.cumprod(alpha * np.sqrt(delta_t) * Z2 - 0.5 * alpha**2 + delta_t, axis=1)
-          
-        st = spot * np.cumprod(np.exp(sigma_tk * np.sqrt(delta_t) * Z1 - 0.5 * sigma_tk**2 * delta_t), axis=1)[:,-1]
+        sigma_tk = sigma * np.cumprod(np.exp(alpha * np.sqrt(delta_t) * Z2 - 0.5 * alpha**2 + delta_t), axis=1)
         
-        ck=np.mean(np.fmax(cp_sign*(st - strike[:, np.newaxis]), 0), axis=1)
+        st = np.exp(np.log(spot) + np.cumsum(sigma_tk * np.sqrt(delta_t) * Z1 - 0.5 * sigma_tk**2 * delta_t,axis=1))
+        
+        ck = np.mean(np.fmax(cp_sign*(st[:,-1] - strike[:, np.newaxis]), 0), axis=1)
 
         return ck
 
@@ -322,7 +320,21 @@ class ModelNormalMC:
         this is the opposite of normal_vol in ModelNormalHagan class
         use normal_model 
         '''
-        return 0
+        texp = self.texp if(texp is None) else texp
+        vol = self.normal_model.impvol(price, strike, spot, texp, cp_sign=cp_sign)
+        forward = spot * np.exp(texp*(self.intr - self.divr))
+        
+        price = self.price(self, strike, spot, texp, sigma, cp_sign)
+        sigma = self.texp if(sigma is None) else sigma
+        
+        iv_func = lambda _sigma: \
+            normal_vol(strike, forward, texp, _sigma, alpha=self.alpha, rho=self.rho) - vol
+        sigma = sopt.brentq(iv_func, 0, 50)
+        
+        if(setval):
+            self.sigma = sigma
+            
+        return sigma
         
     def price(self, strike, spot, texp=None, sigma=None, cp_sign=1):
         '''
@@ -331,7 +343,30 @@ class ModelNormalMC:
         You may fix the random number seed
         '''
         np.random.seed(12345)
-        return 0
+        
+        texp = self.texp if(texp is None) else texp
+        sigma = self.sigma if(sigma is None) else sigma
+        
+        alpha = self.alpha
+        beta = self.beta
+        rho = self.rho
+        
+        delta_t=0.25
+        N=int(texp/delta_t)
+        
+        n_samples=1000
+        
+        Z1 = np.random.normal(size=(strike.size, N, 2, n_samples))[:, :, 0]
+        Z2 = rho * Z1 + np.sqrt(1 - rho**2) * np.random.normal(size=(strike.size, N, 2, n_samples))[:, :, 0]
+               
+        sigma_tk = sigma * np.cumprod(np.exp(alpha * np.sqrt(delta_t) * Z2 - 0.5 * alpha**2 + delta_t), axis=1)
+        
+        st = spot + np.cumsum((sigma_tk * np.sqrt(delta_t) * Z1),axis=1)
+        
+        ck = np.mean(np.fmax(cp_sign*(st[:,-1] - strike[:, np.newaxis]), 0), axis=1)
+
+        return ck
+
 
 '''
 Conditional MC model class for Beta=1

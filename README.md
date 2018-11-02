@@ -1,5 +1,5 @@
 # PHBS_ASP_2018
-Applied Stochastic Processes class taught by prof. Jaehyuk Choi at Peking University HSBC Business School Shenzhen, China
+[Applied Stochastic Processes](https://github.com/PHBS/2018.M1.ASP) class taught by prof. Jaehyuk Choi at Peking University HSBC Business School Shenzhen, China
 
 ## HW 2
 Corporate Bond Pricing:

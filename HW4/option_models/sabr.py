@@ -41,7 +41,7 @@ def bsm_vol(strike, forward, texp, sigma, alpha=0, rho=0, beta=1):
     ind = np.where(abs(zz) < 1e-5)
     xx_zz[ind] = 1 + (rho/2)*zz[ind] + (1/2*rho2-1/6)*zz[ind]**2 + 1/8*(5*rho2-3)*rho*zz[ind]**3
     ind = np.where(zz >= 1e-5)
-    xx_zz[ind] = np.log( (yy[[ind]] + (zz[ind]-rho))/(1-rho) ) / zz[ind]
+    xx_zz[ind] = np.log( (yy[ind] + (zz[ind]-rho))/(1-rho) ) / zz[ind]
     ind = np.where(zz <= -1e-5)
     xx_zz[ind] = np.log( (1+rho)/(yy[ind] - (zz[ind]-rho)) ) / zz[ind]
 

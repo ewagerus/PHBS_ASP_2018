@@ -1,12 +1,14 @@
 This is a project prepared for the needs of [Applied Stochastic Processes](https://github.com/PHBS/2018.M1.ASP) class taught by prof. Jaehyuk Choi at Peking University HSBC Business School Shenzhen, China.
 
-### TEAM MEMBERS & DISTRIBUTION OF RESPONSIBILITIES
+## TEAM MEMBERS & DISTRIBUTION OF RESPONSIBILITIES
 
 [Junjie ZHANG](https://github.com/labro): rational.py lines 10-182 and 225-237
 
 [Ewa GERUS](https://github.com/ewagerus): rational.py lines 184-222 and Test_code.ipynb
 
-[Noam PELEG](https://github.com/Noam-Peleg): documentation 
+[Noam PELEG](https://github.com/Noam-Peleg): documentation
+
+## DOCUMENTATION
 
 ### Base Theory
 “Let’s be Rational” by Peter Jackel, introduces an industrial solution to attaining implied volatility through option prices using minimal iterations and maximal precision. This “industrial solution” that Jackel’s updated paper is addressing is the recurrent appearance of unlikely input parameters in the use of the Black formula during everyday analytical transformations. While the Black-Scholes Model assumes constant volatility in practice, supply and demand from the market continuously alter the risk associated with securities, derivatives, indices, etc. For a more accurate price on a European option, volatility must be computed through a repetition of computations or iterations. Iterative root-finding methods, such as the Householder’s Method executed here, are required to convey implied volatility. Although, with computational effort under consideration, the optimization of this tradeoff between convergence order and number of iterations is the improvement Jackel has made from his previous paper “By Implication” (2006).

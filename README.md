@@ -24,8 +24,10 @@ SABR Model Test Code:
 * SABR for β=0
 * smile calibration to 3 options
 2) Pricing under MC method
-3) Pricing under conditional MC method
-4) Comparison of the MC variance between brute-force MC and conditional MC
+
+## FINAL PROJECT
+An industrial solution to attaining implied volatility through option prices using minimal iterations and maximal precision:
+* iplementation of the method described in a paper called "Let's be rational" by Peter Jackel (2016)
 
  
  
